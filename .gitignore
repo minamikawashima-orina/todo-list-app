@@ -1,0 +1,12 @@
+# 認証情報・秘密の設定（GitHubに公開しない）
+.env
+credentials.json
+.streamlit/secrets.toml
+
+# Pythonが自動で作るファイル
+__pycache__/
+venv/
+.venv/
+
+# Macが自動で作るファイル
+.DS_Store
