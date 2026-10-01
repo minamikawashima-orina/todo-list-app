@@ -1,12 +1,15 @@
 import os
 
 import gspread
+import streamlit as st
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
 
 # ----------------------------------------
 # 設定の読み込み
-# .env ファイルの中身を読み込みます（秘密情報はコードに直接書きません）
+# 秘密情報はコードに直接書かず、次のどちらかから読み込みます
+#   ・Streamlit Cloud：Secrets（st.secrets）
+#   ・ローカル：.env と credentials.json
 # ----------------------------------------
 load_dotenv()
 
@@ -20,14 +23,32 @@ WORKSHEET_NAME = "Todoリスト"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
+def has_secrets():
+    """Streamlit の Secrets にサービスアカウント情報が設定されているか調べる"""
+    try:
+        return "gcp_service_account" in st.secrets
+    except FileNotFoundError:
+        # secrets.toml が無いとき（ローカル環境）はここに来る
+        return False
+
+
 def get_worksheet():
     """Googleスプレッドシートの「Todoリスト」タブを取得する"""
-    # credentials.json を使って、サービスアカウントとしてログイン
-    credentials = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
+    if has_secrets():
+        # Streamlit Cloud：Secrets の情報でサービスアカウントとしてログイン
+        credentials = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]), scopes=SCOPES
+        )
+        spreadsheet_id = st.secrets["SPREADSHEET_ID"]
+    else:
+        # ローカル：credentials.json と .env の情報でログイン
+        credentials = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
+        spreadsheet_id = SPREADSHEET_ID
+
     client = gspread.authorize(credentials)
 
     # スプレッドシートIDでファイルを開き、タブ名でシートを選ぶ
-    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    spreadsheet = client.open_by_key(spreadsheet_id)
     return spreadsheet.worksheet(WORKSHEET_NAME)
 
 
