@@ -19,6 +19,9 @@ CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
 # 使うタブ（ワークシート）の名前
 WORKSHEET_NAME = "Todoリスト"
 
+# 重要度の選択肢（スプレッドシートのD列に保存します）
+PRIORITIES = ["高", "中", "低"]
+
 # スプレッドシートの読み書きだけを許可する設定
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -61,20 +64,24 @@ def get_todos():
     # [1:] で1行目（見出し）を飛ばす
     # start=2 で、行番号を2から数える（スプレッドシートの行番号と合わせるため）
     for row_number, row in enumerate(rows[1:], start=2):
-        todos.append({"row": row_number, "title": row[0], "content": row[1], "due": row[2]})
+        # 重要度を追加する前のTodoはD列が無いので、空欄で4つそろうように補う
+        row = row + [""] * (4 - len(row))
+        todos.append(
+            {"row": row_number, "title": row[0], "content": row[1], "due": row[2], "priority": row[3]}
+        )
     return todos
 
 
-def add_todo(title, content, due):
+def add_todo(title, content, due, priority):
     """新しいTodoをスプレッドシートの最終行に追加する"""
     worksheet = get_worksheet()
-    worksheet.append_row([title, content, due])
+    worksheet.append_row([title, content, due, priority])
 
 
-def update_todo(row, title, content, due):
-    """指定した行番号のTodoを書き換える（例：row=3 なら A3〜C3 を更新）"""
+def update_todo(row, title, content, due, priority):
+    """指定した行番号のTodoを書き換える（例：row=3 なら A3〜D3 を更新）"""
     worksheet = get_worksheet()
-    worksheet.update(range_name=f"A{row}:C{row}", values=[[title, content, due]])
+    worksheet.update(range_name=f"A{row}:D{row}", values=[[title, content, due, priority]])
 
 
 def delete_todo(todo):
@@ -89,8 +96,8 @@ def delete_todo(todo):
 
     # 安全確認：今その行に入っている内容が、削除したいTodoと同じかチェックする
     # （画面を開いた後にスプレッドシートが変わっていたら、別のTodoを消さないように中止）
-    current = worksheet.row_values(row) + ["", "", ""]  # 空欄があっても3つそろうように補う
-    if current[:3] != [todo["title"], todo["content"], todo["due"]]:
+    current = worksheet.row_values(row) + ["", "", "", ""]  # 空欄があっても4つそろうように補う
+    if current[:4] != [todo["title"], todo["content"], todo["due"], todo["priority"]]:
         return False
 
     worksheet.delete_rows(row)
